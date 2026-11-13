@@ -107,7 +107,6 @@
         </div>
     </div>
 
-    <!-- Script Integration -->
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9mZjnk20AGqwdpqkhAor32FBV1w-cyq-ekxr2ENRxfUIYzr1h2mrArGZaCHtjoEmAag/exec"; // Apna active Apps Script Web App URL yahan daalein
 
@@ -172,7 +171,7 @@
 
         function editParty(p) {
             document.getElementById("modalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-400"></i> Edit Party`;
-            document.getElementById("partyId").value = p.id;
+            document.getElementById("partyId").value = p.id || "";
             document.getElementById("partyName").value = p.name || "";
             document.getElementById("partyType").value = p.type || "Publisher";
             document.getElementById("partyPhone").value = p.phone || "";
@@ -195,7 +194,7 @@
                 action: "saveParty",
                 id: document.getElementById("partyId").value,
                 name: document.getElementById("partyName").value,
-                type: document.getElementById("partyType.value") || document.getElementById("partyType").value,
+                type: document.getElementById("partyType").value,
                 email: document.getElementById("partyEmail").value,
                 phone: document.getElementById("partyPhone").value,
                 address: document.getElementById("partyAddress").value
