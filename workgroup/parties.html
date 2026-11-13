@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parties & Accounts Master - Adhikari Book Depot ERP</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 font-sans antialiased">
+
+    <!-- SECURITY GUARD SCRIPT -->
+    <script>
+        if (localStorage.getItem("adhikari_logged_in") !== "true") {
+            window.location.href = "../../index.html";
+        }
+    </script>
+
+    <div class="min-h-screen flex flex-col">
+        <!-- Top Clean Header (No Sidebar) -->
+        <header class="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">Parties & Accounts Directory</h2>
+                <p class="text-xs text-gray-500">Manage publishers, schools, and customer accounts for your ERP.</p>
+            </div>
+            <div>
+                <button onclick="openPartyModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-plus"></i> <span>Add New Party</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="p-8 max-w-7xl mx-auto w-full flex-1 space-y-6">
+
+            <!-- Directory Table Card -->
+            <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">All Registered Parties</h3>
+                        <p class="text-xs text-gray-500">Search by Party Name, Role, Phone, or Email.</p>
+                    </div>
+                    <input type="text" id="party-search" oninput="renderPartiesList()" placeholder="Search parties..." class="px-4 py-2 border rounded-xl text-xs w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="overflow-x-auto border border-gray-100 rounded-xl">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-[11px] uppercase text-gray-500 font-bold border-b border-gray-200 tracking-wider">
+                                <th class="p-3.5">Party ID</th>
+                                <th class="p-3.5">Party Name</th>
+                                <th class="p-3.5">Role / Type</th>
+                                <th class="p-3.5">Phone</th>
+                                <th class="p-3.5">Email</th>
+                                <th class="p-3.5">Address</th>
+                                <th class="p-3.5 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="parties-list-tbody" class="text-xs text-slate-700 divide-y divide-gray-100">
+                            <tr><td colspan="7" class="p-6 text-center text-gray-400">Loading parties data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ADD / EDIT PARTY MODAL -->
+    <div id="party-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4 my-8">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="modal-title" class="text-base font-bold text-slate-800"><i class="fa-solid fa-address-book text-indigo-600 mr-2"></i>Add New Party</h3>
+                <button onclick="closePartyModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <input type="hidden" id="edit-party-key">
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Party ID *</label>
+                    <input type="text" id="party-id" readonly class="w-full border bg-slate-100 text-slate-500 rounded-xl p-2.5 font-mono font-bold">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Party Name *</label>
+                    <input type="text" id="party-name" class="w-full border rounded-xl p-2.5 bg-white" placeholder="Enter school or publisher name...">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Role / Type *</label>
+                    <select id="party-role" class="w-full border rounded-xl p-2.5 bg-white font-semibold text-slate-800">
+                        <option value="Publisher">Publisher</option>
+                        <option value="School">School</option>
+                        <option value="Customer">Customer</option>
+                        <option value="Publisher-Customer Both">Publisher-Customer Both</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Phone Number</label>
+                        <input type="text" id="party-phone" class="w-full border rounded-xl p-2.5 bg-white" placeholder="10-digit mobile no">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Email Address</label>
+                        <input type="email" id="party-email" class="w-full border rounded-xl p-2.5 bg-white" placeholder="party@email.com">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Address</label>
+                    <textarea id="party-address" rows="3" class="w-full border rounded-xl p-2.5 bg-white" placeholder="Complete address..."></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-3 border-t">
+                <button onclick="closePartyModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-gray-600">Cancel</button>
+                <button onclick="savePartyData()" id="save-party-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow">Save Party</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyd5md98hnBuGqaQadanbWnKNFY6URPTLI2iVHwlxUG1S1NRBqSCvGsLY6c9L1gBaTNyg/exec";
+
+        let partiesList = [];
+
+        function fetchParties() {
+            fetch(SCRIPT_URL)
+                .then(res => res.json())
+                .then(data => {
+                    partiesList = data.parties || [];
+                    renderPartiesList();
+                })
+                .catch(err => {
+                    console.error("Fetch error:", err);
+                    document.getElementById('parties-list-tbody').innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500">Error connecting to cloud database!</td></tr>`;
+                });
+        }
+
+        function generatePartyId() {
+            return "PRT-" + Math.floor(100000 + Math.random() * 900000);
+        }
+
+        function openPartyModal(partyId = null) {
+            if (partyId) {
+                let p = partiesList.find(x => x.id === partyId);
+                if (p) {
+                    document.getElementById('modal-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-600 mr-2"></i>Edit Party (${p.id})`;
+                    document.getElementById('edit-party-key').value = p.id;
+                    document.getElementById('party-id').value = p.id;
+                    document.getElementById('party-name').value = p.name;
+                    document.getElementById('party-role').value = p.role || 'Publisher';
+                    document.getElementById('party-phone').value = p.phone || '';
+                    document.getElementById('party-email').value = p.email || '';
+                    document.getElementById('party-address').value = p.address || '';
+                }
+            } else {
+                document.getElementById('modal-title').innerHTML = `<i class="fa-solid fa-address-book text-indigo-600 mr-2"></i>Add New Party`;
+                document.getElementById('edit-party-key').value = '';
+                document.getElementById('party-id').value = generatePartyId();
+                document.getElementById('party-name').value = '';
+                document.getElementById('party-role').value = 'Publisher';
+                document.getElementById('party-phone').value = '';
+                document.getElementById('party-email').value = '';
+                document.getElementById('party-address').value = '';
+            }
+            document.getElementById('party-modal').classList.remove('hidden');
+        }
+
+        function closePartyModal() {
+            document.getElementById('party-modal').classList.add('hidden');
+        }
+
+        function renderPartiesList() {
+            let search = document.getElementById('party-search').value.toLowerCase();
+            let tbody = document.getElementById('parties-list-tbody');
+
+            let filtered = partiesList.filter(p => 
+                (p.id && p.id.toLowerCase().includes(search)) || 
+                (p.name && p.name.toLowerCase().includes(search)) ||
+                (p.role && p.role.toLowerCase().includes(search)) ||
+                (p.phone && p.phone.toLowerCase().includes(search)) ||
+                (p.email && p.email.toLowerCase().includes(search))
+            );
+
+            if(filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400">No parties found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(p => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-3.5 font-bold font-mono text-indigo-600">${p.id}</td>
+                    <td class="p-3.5 font-semibold text-slate-800">${p.name}</td>
+                    <td class="p-3.5"><span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold">${p.role || 'Publisher'}</span></td>
+                    <td class="p-3.5 text-gray-600">${p.phone || '-'}</td>
+                    <td class="p-3.5 text-gray-600">${p.email || '-'}</td>
+                    <td class="p-3.5 text-gray-600 truncate max-w-xs">${p.address || '-'}</td>
+                    <td class="p-3.5 text-center space-x-2">
+                        <button onclick="openPartyModal('${p.id}')" class="text-indigo-500 hover:text-indigo-700 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteParty('${p.id}')" class="text-gray-400 hover:text-red-500 p-1" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function savePartyData() {
+            let editKey = document.getElementById('edit-party-key').value;
+            let id = document.getElementById('party-id').value;
+            let name = document.getElementById('party-name').value.trim();
+            let role = document.getElementById('party-role').value;
+            let phone = document.getElementById('party-phone').value.trim();
+            let email = document.getElementById('party-email').value.trim();
+            let address = document.getElementById('party-address').value.trim();
+
+            if(!name) { alert("Please enter party name!"); return; }
+
+            let btn = document.getElementById('save-party-btn');
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+
+            let action = editKey ? 'update' : 'add';
+            let payload = { type: 'party', action, id, name, role, phone, email, address };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(res => {
+                alert("Party saved successfully!");
+                closePartyModal();
+                fetchParties();
+                btn.innerText = "Save Party";
+                btn.disabled = false;
+            })
+            .catch(err => {
+                console.error("Save error:", err);
+                alert("Failed to save party to cloud!");
+                btn.innerText = "Save Party";
+                btn.disabled = false;
+            });
+        }
+
+        function deleteParty(partyId) {
+            if(confirm("Are you sure you want to delete this party?")) {
+                fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ type: 'party', action: 'delete', id: partyId })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    alert("Party deleted successfully!");
+                    fetchParties();
+                })
+                .catch(err => alert("Error deleting party!"));
+            }
+        }
+
+        // Initial Data Fetch
+        fetchParties();
+    </script>
+</body>
+</html>
