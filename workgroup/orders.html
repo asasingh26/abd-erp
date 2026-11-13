@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Orders & Receiving - Adhikari Book Depot ERP</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-slate-50 font-sans antialiased">
+
+    <div class="min-h-screen flex flex-col">
+        <!-- Top Clean Header -->
+        <header class="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">Party Orders & Stock Receiving Management</h2>
+                <p class="text-xs text-gray-500">Create publisher orders with smart auto-suggest for parties & stock.</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="openReceivingModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition">
+                    <i class="fa-solid fa-boxes-packing mr-1"></i> Stock Receiving
+                </button>
+                <button onclick="openOrderModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition">
+                    <i class="fa-solid fa-plus mr-1"></i> Create New Order
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="p-8 max-w-7xl mx-auto w-full flex-1 space-y-6">
+            <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">All Party Orders</h3>
+                        <p class="text-xs text-gray-500">Search by Order ID, Party Name, or Status.</p>
+                    </div>
+                    <input type="text" id="order-search" oninput="renderOrdersList()" placeholder="Search orders..." class="px-4 py-2 border rounded-xl text-xs w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="overflow-x-auto border border-gray-100 rounded-xl">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-[11px] uppercase text-gray-500 font-bold border-b border-gray-200 tracking-wider">
+                                <th class="p-3.5">Order ID</th>
+                                <th class="p-3.5">Party / Publisher Name</th>
+                                <th class="p-3.5">Order Date</th>
+                                <th class="p-3.5">Receive On</th>
+                                <th class="p-3.5 text-center">Status</th>
+                                <th class="p-3.5 text-center">Actions (PDF / View & Edit / Delete)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-list-tbody" class="text-xs text-slate-700 divide-y divide-gray-100">
+                            <tr><td colspan="6" class="p-6 text-center text-gray-400">Loading party orders...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- CREATE / EDIT ORDER MODAL -->
+    <div id="order-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 space-y-4 my-8">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="modal-title" class="text-base font-bold text-slate-800"><i class="fa-solid fa-file-invoice text-indigo-600 mr-2"></i>Create New Order</h3>
+                <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <input type="hidden" id="edit-po-id">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Unique Order No *</label>
+                    <input type="text" id="po-number" readonly class="w-full border bg-slate-100 text-slate-500 rounded-xl p-2.5 font-mono font-bold">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Publisher / Party Name *</label>
+                    <!-- AUTO-SUGGEST TEXT INPUT INSTEAD OF DROPDOWN -->
+                    <input type="text" id="po-party" list="parties-datalist" oninput="onPartyTyped()" placeholder="Type or select party..." class="w-full border rounded-xl p-2.5 bg-white font-semibold text-slate-800">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Order Date *</label>
+                    <input type="date" id="po-date" class="w-full border rounded-xl p-2.5 bg-white">
+                </div>
+            </div>
+
+            <div id="party-info-box" class="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl text-xs grid grid-cols-1 md:grid-cols-3 gap-2 hidden">
+                <p><strong>Phone:</strong> <span id="info-phone" class="text-slate-600">-</span></p>
+                <p><strong>Email:</strong> <span id="info-email" class="text-slate-600">-</span></p>
+                <p><strong>Address:</strong> <span id="info-address" class="text-slate-600">-</span></p>
+            </div>
+
+            <div class="bg-slate-50 p-3 rounded-xl border space-y-2 text-xs">
+                <label class="block font-semibold text-slate-700"><i class="fa-solid fa-note-sticky mr-1 text-indigo-600"></i> Order Remarks (Optional)</label>
+                <input type="text" id="po-remark-1" class="w-full border bg-white rounded-lg p-2" placeholder="Remark Row 1">
+                <input type="text" id="po-remark-2" class="w-full border bg-white rounded-lg p-2" placeholder="Remark Row 2">
+            </div>
+
+            <div class="flex justify-between items-center pt-2">
+                <h4 class="text-xs font-bold uppercase text-slate-500 tracking-wider">Order Items Grid</h4>
+                <button onclick="addGridRow()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow transition">
+                    <i class="fa-solid fa-plus mr-1"></i> Add Row
+                </button>
+            </div>
+
+            <div class="overflow-x-auto border rounded-xl max-h-64">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-[11px] uppercase text-slate-600 font-bold border-b tracking-wider sticky top-0">
+                            <th class="p-2.5 w-12 text-center">Sr</th>
+                            <th class="p-2.5">Book Name (Auto-suggests from Stock)</th>
+                            <th class="p-2.5 w-40">Part / Class</th>
+                            <th class="p-2.5 w-32 text-center">Quantity (PCS)</th>
+                            <th class="p-2.5 w-16 text-center">Del</th>
+                        </tr>
+                    </thead>
+                    <tbody id="grid-tbody" class="text-xs divide-y divide-gray-100">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-3 border-t">
+                <button onclick="closeOrderModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-gray-600">Cancel</button>
+                <button onclick="savePartyOrder()" id="save-ord-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow">Save Order</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STOCK RECEIVING MODAL -->
+    <div id="receiving-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-6 space-y-4 my-8">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-base font-bold text-slate-800"><i class="fa-solid fa-boxes-packing text-emerald-600 mr-2"></i>Stock Receiving & Invoice Entry</h3>
+                <button onclick="closeReceivingModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Select Pending Order *</label>
+                    <select id="rec-order-select" onchange="loadOrderForReceiving()" class="w-full border rounded-xl p-2.5 bg-white font-semibold text-slate-800">
+                        <option value="">-- Choose Pending Order --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Receiving Date *</label>
+                    <input type="date" id="rec-date" class="w-full border rounded-xl p-2.5 bg-white">
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border rounded-xl max-h-80">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-[11px] uppercase text-slate-600 font-bold border-b tracking-wider sticky top-0">
+                            <th class="p-2.5 w-12 text-center">Sr</th>
+                            <th class="p-2.5">Book Name</th>
+                            <th class="p-2.5 w-32">Class</th>
+                            <th class="p-2.5 w-24 text-center">Ordered Qty</th>
+                            <th class="p-2.5 w-28 text-center bg-emerald-50">Recieved Qty</th>
+                            <th class="p-2.5 w-24 text-center text-amber-600">Balance</th>
+                            <th class="p-2.5 w-24 text-center text-purple-600">Extra</th>
+                            <th class="p-2.5 w-24 text-center">Price (₹)</th>
+                            <th class="p-2.5 w-20 text-center">Disc %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="receiving-tbody" class="text-xs divide-y divide-gray-100">
+                        <tr><td colspan="9" class="p-6 text-center text-gray-400">Please select a pending order above.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-3 border-t">
+                <button onclick="closeReceivingModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-gray-600">Cancel</button>
+                <button onclick="saveReceivingData()" id="save-rec-btn" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow">Complete Receiving</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW / EDIT COMPLETED RECEIVING MODAL -->
+    <div id="view-edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-6 space-y-4 my-8">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="view-edit-modal-title" class="text-base font-bold text-slate-800"><i class="fa-solid fa-pen-to-square text-indigo-600 mr-2"></i>View / Modify Receiving</h3>
+                <button onclick="closeViewEditModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <input type="hidden" id="ve-order-id">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Order ID</label>
+                    <input type="text" id="ve-display-id" readonly class="w-full border bg-slate-100 text-slate-500 rounded-xl p-2.5 font-mono font-bold">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Party / Publisher</label>
+                    <input type="text" id="ve-display-party" readonly class="w-full border bg-slate-100 text-slate-600 rounded-xl p-2.5 font-semibold">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Receiving Date *</label>
+                    <input type="date" id="ve-date" class="w-full border rounded-xl p-2.5 bg-white">
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border rounded-xl max-h-80">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-[11px] uppercase text-slate-600 font-bold border-b tracking-wider sticky top-0">
+                            <th class="p-2.5 w-12 text-center">Sr</th>
+                            <th class="p-2.5">Book Name</th>
+                            <th class="p-2.5 w-32">Class</th>
+                            <th class="p-2.5 w-24 text-center">Ordered Qty</th>
+                            <th class="p-2.5 w-28 text-center bg-emerald-50">Recieved Qty</th>
+                            <th class="p-2.5 w-24 text-center text-amber-600">Balance</th>
+                            <th class="p-2.5 w-24 text-center text-purple-600">Extra</th>
+                            <th class="p-2.5 w-24 text-center">Price (₹)</th>
+                            <th class="p-2.5 w-20 text-center">Disc %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="view-edit-tbody" class="text-xs divide-y divide-gray-100">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-3 border-t">
+                <button onclick="closeViewEditModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-gray-600">Cancel</button>
+                <button onclick="updateViewEditData()" id="save-ve-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow">Update & Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF EXPORT CONFIG MODAL -->
+    <div id="pdf-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-base font-bold text-slate-800"><i class="fa-solid fa-file-pdf text-red-600 mr-2"></i>Export Letterhead PDF</h3>
+                <button onclick="closePdfModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <input type="hidden" id="pdf-order-id">
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Custom Message / Matter (For Mail / Letterhead)</label>
+                    <textarea id="pdf-custom-msg" rows="4" class="w-full border rounded-xl p-2.5 bg-white" placeholder="Enter custom message to print on letterhead..."></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-3 border-t">
+                <button onclick="closePdfModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-gray-600">Cancel</button>
+                <button onclick="generateFinalPDF()" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow"><i class="fa-solid fa-download mr-1"></i> Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL DATALISTS FOR AUTOCOMPLETE -->
+    <datalist id="parties-datalist"></datalist>
+    <datalist id="stock-books-list"></datalist>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyd5md98hnBuGqaQadanbWnKNFY6URPTLI2iVHwlxUG1S1NRBqSCvGsLY6c9L1gBaTNyg/exec";
+
+        let appData = { parties: [], orders: [], stock: [] };
+
+        function fetchData() {
+            fetch(SCRIPT_URL)
+                .then(res => res.json())
+                .then(data => {
+                    appData.parties = data.parties || [];
+                    appData.orders = data.orders || [];
+                    appData.stock = data.stock || [];
+                    populatePartiesDatalist();
+                    populateStockDatalist();
+                    renderOrdersList();
+                })
+                .catch(err => {
+                    console.error("Fetch error:", err);
+                    document.getElementById('orders-list-tbody').innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">Error connecting to cloud database!</td></tr>`;
+                });
+        }
+
+        function populatePartiesDatalist() {
+            let datalist = document.getElementById('parties-datalist');
+            datalist.innerHTML = appData.parties.map(p => `<option value="${p.name}">`).join('');
+        }
+
+        function populateStockDatalist() {
+            let datalist = document.getElementById('stock-books-list');
+            let uniqueBooks = [...new Set(appData.stock.map(s => s.bookName))];
+            datalist.innerHTML = uniqueBooks.map(book => `<option value="${book}">`).join('');
+        }
+
+        function onPartyTyped() {
+            let typedName = document.getElementById('po-party').value.trim();
+            let party = appData.parties.find(p => p.name.toLowerCase() === typedName.toLowerCase());
+            let box = document.getElementById('party-info-box');
+
+            if (party) {
+                document.getElementById('info-phone').innerText = party.phone || '-';
+                document.getElementById('info-email').innerText = party.email || '-';
+                document.getElementById('info-address').innerText = party.address || '-';
+                box.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function generateOrderNo() {
+            let year = new Date().getFullYear();
+            let count = appData.orders.length + 1;
+            let paddedCount = String(count).padStart(2, '0');
+            return `ABD-${year}${paddedCount}`;
+        }
+
+        function openOrderModal(orderId = null) {
+            let tbody = document.getElementById('grid-tbody');
+            tbody.innerHTML = '';
+
+            if (orderId) {
+                let ord = appData.orders.find(o => o.id === orderId);
+                if (ord) {
+                    document.getElementById('modal-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-600 mr-2"></i>Edit Order (${ord.id})`;
+                    document.getElementById('edit-po-id').value = ord.id;
+                    document.getElementById('po-number').value = ord.id;
+                    document.getElementById('po-party').value = ord.partyName;
+                    document.getElementById('po-date').value = ord.date;
+                    document.getElementById('po-remark-1').value = ord.remark1 || '';
+                    document.getElementById('po-remark-2').value = ord.remark2 || '';
+                    onPartyTyped();
+
+                    (ord.items || []).forEach(item => addGridRow(item));
+                }
+            } else {
+                document.getElementById('modal-title').innerHTML = `<i class="fa-solid fa-file-invoice text-indigo-600 mr-2"></i>Create New Order`;
+                document.getElementById('edit-po-id').value = '';
+                document.getElementById('po-number').value = generateOrderNo();
+                document.getElementById('po-date').valueAsDate = new Date();
+                document.getElementById('po-party').value = '';
+                document.getElementById('po-remark-1').value = '';
+                document.getElementById('po-remark-2').value = '';
+                document.getElementById('party-info-box').classList.add('hidden');
+                
+                addGridRow();
+                addGridRow();
+            }
+            document.getElementById('order-modal').classList.remove('hidden');
+        }
+
+        function closeOrderModal() {
+            document.getElementById('order-modal').classList.add('hidden');
+        }
+
+        function addGridRow(data = null) {
+            let tbody = document.getElementById('grid-tbody');
+            let rowCount = tbody.rows.length + 1;
+            let tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 transition border-b border-gray-100";
+
+            let name = data ? data.name : '';
+            let cls = data ? data.cls : 'Class 6';
+            let qty = data ? data.qty : 10;
+
+            tr.innerHTML = `
+                <td class="p-2.5 text-center font-bold text-gray-500 row-sr">${rowCount}</td>
+                <td class="p-2.5"><input type="text" list="stock-books-list" class="item-name w-full border rounded-lg p-2 text-xs bg-white" value="${name}" placeholder="Type book name..." onchange="onBookSelected(this)"></td>
+                <td class="p-2.5"><input type="text" class="item-class w-full border rounded-lg p-2 text-xs bg-white" value="${cls}" placeholder="Part / Class"></td>
+                <td class="p-2.5 text-center"><input type="number" class="item-qty w-full border rounded-lg p-2 text-xs text-center bg-white" value="${qty}"></td>
+                <td class="p-2.5 text-center"><button onclick="removeGridRow(this)" class="text-gray-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash-can"></i></button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function onBookSelected(input) {
+            let val = input.value.trim();
+            let matchedStock = appData.stock.find(s => s.bookName.toLowerCase() === val.toLowerCase());
+            if (matchedStock && matchedStock.cls) {
+                input.closest('tr').querySelector('.item-class').value = matchedStock.cls;
+            }
+        }
+
+        function removeGridRow(btn) {
+            btn.closest('tr').remove();
+            reindexRows();
+        }
+
+        function reindexRows() {
+            document.querySelectorAll('#grid-tbody tr').forEach((tr, index) => {
+                tr.querySelector('.row-sr').innerText = index + 1;
+            });
+        }
+
+        function renderOrdersList() {
+            let search = document.getElementById('order-search').value.toLowerCase();
+            let tbody = document.getElementById('orders-list-tbody');
+            
+            let filtered = appData.orders.filter(o => 
+                (o.id && o.id.toLowerCase().includes(search)) || 
+                (o.partyName && o.partyName.toLowerCase().includes(search)) ||
+                (o.status && o.status.toLowerCase().includes(search))
+            );
+
+            if(filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">No party orders found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(o => {
+                let statusBadge = o.status === 'Completed' ? 
+                    `<span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold border border-emerald-200">Completed</span>` : 
+                    `<span class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-[10px] font-bold border border-amber-200">Pending</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-3.5 font-bold font-mono text-indigo-600">${o.id}</td>
+                        <td class="p-3.5 font-semibold text-slate-800">${o.partyName}</td>
+                        <td class="p-3.5 text-gray-600">${o.date}</td>
+                        <td class="p-3.5 text-gray-600">${o.receiveOn || '-'}</td>
+                        <td class="p-3.5 text-center">${statusBadge}</td>
+                        <td class="p-3.5 text-center space-x-2">
+                            <button onclick="openPdfModal('${o.id}')" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-lg text-[10px] font-bold shadow" title="Download PDF"><i class="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+                            <button onclick="openViewEditModal('${o.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded-lg text-[10px] font-bold shadow" title="View & Edit"><i class="fa-solid fa-pen-to-square mr-1"></i> View/Edit</button>
+                            <button onclick="deleteOrder('${o.id}')" class="text-gray-400 hover:text-red-500 p-1" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function savePartyOrder() {
+            let editId = document.getElementById('edit-po-id').value;
+            let orderNo = document.getElementById('po-number').value;
+            let partyName = document.getElementById('po-party').value.trim();
+            let date = document.getElementById('po-date').value;
+            let remark1 = document.getElementById('po-remark-1').value.trim();
+            let remark2 = document.getElementById('po-remark-2').value.trim();
+            let rows = document.querySelectorAll('#grid-tbody tr');
+
+            if(!partyName) { alert("Please enter or select a party/publisher!"); return; }
+            if(rows.length === 0) { alert("Please add at least one item row!"); return; }
+
+            let items = [];
+            for(let tr of rows) {
+                let name = tr.querySelector('.item-name').value.trim();
+                let cls = tr.querySelector('.item-class').value.trim();
+                let qty = Number(tr.querySelector('.item-qty').value) || 0;
+
+                if(!name || qty <= 0) {
+                    alert("Please fill valid Book Name and Quantity in all rows!");
+                    return;
+                }
+                items.push({ name, cls, qty, disc: 0, price: 0, recievedQty: 0, balance: 0, extra: 0 });
+            }
+
+            let btn = document.getElementById('save-ord-btn');
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+
+            let action = editId ? 'update' : 'add';
+            let payload = { type: 'order', action, id: orderNo, partyName, date, remark1, remark2, status: 'Pending', items };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(res => {
+                alert("Order saved successfully!");
+                closeOrderModal();
+                fetchData();
+                btn.innerText = "Save Order";
+                btn.disabled = false;
+            })
+            .catch(err => {
+                console.error("Save error:", err);
+                alert("Failed to save order to cloud!");
+                btn.innerText = "Save Order";
+                btn.disabled = false;
+            });
+        }
+
+        function deleteOrder(orderId) {
+            if(confirm("Are you sure you want to delete this order?")) {
+                fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ type: 'order', action: 'delete', id: orderId })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    alert("Order deleted successfully!");
+                    fetchData();
+                })
+                .catch(err => alert("Error deleting order!"));
+            }
+        }
+
+        function openReceivingModal() {
+            let select = document.getElementById('rec-order-select');
+            let pendingOrders = appData.orders.filter(o => o.status !== 'Completed');
+
+            select.innerHTML = `<option value="">-- Choose Pending Order --</option>` + 
+                pendingOrders.map(o => `<option value="${o.id}">${o.id} - ${o.partyName} (${o.date})</option>`).join('');
+
+            document.getElementById('rec-date').valueAsDate = new Date();
+            document.getElementById('receiving-tbody').innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">Please select a pending order above.</td></tr>`;
+            document.getElementById('receiving-modal').classList.remove('hidden');
+        }
+
+        function closeReceivingModal() {
+            document.getElementById('receiving-modal').classList.add('hidden');
+        }
+
+        function loadOrderForReceiving() {
+            let orderId = document.getElementById('rec-order-select').value;
+            let tbody = document.getElementById('receiving-tbody');
+            if(!orderId) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">Please select a pending order above.</td></tr>`;
+                return;
+            }
+
+            let ord = appData.orders.find(o => o.id === orderId);
+            if(!ord) return;
+
+            tbody.innerHTML = (ord.items || []).map((item, idx) => `
+                <tr class="hover:bg-slate-50 transition border-b border-gray-100 rec-row" data-name="${item.name}" data-cls="${item.cls}" data-ordered="${item.qty}">
+                    <td class="p-2.5 text-center font-bold text-gray-500">${idx + 1}</td>
+                    <td class="p-2.5 font-semibold text-slate-800">${item.name}</td>
+                    <td class="p-2.5 text-slate-600">${item.cls}</td>
+                    <td class="p-2.5 text-center font-bold text-indigo-600 item-ordered">${item.qty}</td>
+                    <td class="p-2.5 text-center bg-emerald-50/50"><input type="number" class="item-rec w-20 border rounded-lg p-1.5 text-xs text-center bg-white font-bold" value="${item.qty}" oninput="calculateReceiving(this)"></td>
+                    <td class="p-2.5 text-center font-bold text-amber-600 item-balance">0</td>
+                    <td class="p-2.5 text-center font-bold text-purple-600 item-extra">0</td>
+                    <td class="p-2.5 text-center"><input type="number" class="item-price w-20 border rounded-lg p-1.5 text-xs text-center bg-white" placeholder="0.00" value="${item.price || ''}"></td>
+                    <td class="p-2.5 text-center"><input type="number" class="item-disc w-16 border rounded-lg p-1.5 text-xs text-center bg-white" placeholder="0" value="${item.disc || ''}"></td>
+                </tr>
+            `).join('');
+
+            document.querySelectorAll('.item-rec').forEach(input => calculateReceiving(input));
+        }
+
+        function calculateReceiving(elem) {
+            let tr = elem.closest('tr');
+            let ordered = Number(tr.querySelector('.item-ordered').innerText) || 0;
+            let received = Number(tr.querySelector('.item-rec').value) || 0;
+
+            let balance = received < ordered ? ordered - received : 0;
+            let extra = received > ordered ? received - ordered : 0;
+
+            tr.querySelector('.item-balance').innerText = balance;
+            tr.querySelector('.item-extra').innerText = extra;
+        }
+
+        function saveReceivingData() {
+            let orderId = document.getElementById('rec-order-select').value;
+            let receiveOn = document.getElementById('rec-date').value;
+            if(!orderId || !receiveOn) { alert("Please select order and receiving date!"); return; }
+
+            let ord = appData.orders.find(o => o.id === orderId);
+            if(!ord) return;
+
+            let rows = document.querySelectorAll('.rec-row');
+            let updatedItems = [];
+
+            rows.forEach(tr => {
+                let name = tr.getAttribute('data-name');
+                let cls = tr.getAttribute('data-cls');
+                let qty = Number(tr.getAttribute('data-ordered')) || 0;
+                let recievedQty = Number(tr.querySelector('.item-rec').value) || 0;
+                let balance = Number(tr.querySelector('.item-balance').innerText) || 0;
+                let extra = Number(tr.querySelector('.item-extra').innerText) || 0;
+                let price = Number(tr.querySelector('.item-price').value) || 0;
+                let disc = Number(tr.querySelector('.item-disc').value) || 0;
+
+                updatedItems.push({ name, cls, qty, recievedQty, balance, extra, price, disc });
+            });
+
+            let btn = document.getElementById('save-rec-btn');
+            btn.innerText = "Processing...";
+            btn.disabled = true;
+
+            let payload = {
+                type: 'order',
+                action: 'receive',
+                id: ord.id,
+                date: ord.date,
+                receiveOn: receiveOn,
+                partyName: ord.partyName,
+                remark1: ord.remark1 || '',
+                remark2: ord.remark2 || '',
+                status: 'Completed',
+                items: updatedItems
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(res => {
+                alert("Stock Receiving completed successfully!");
+                closeReceivingModal();
+                fetchData();
+                btn.innerText = "Complete Receiving";
+                btn.disabled = false;
+            })
+            .catch(err => {
+                console.error("Receiving error:", err);
+                alert("Failed to save receiving data!");
+                btn.innerText = "Complete Receiving";
+                btn.disabled = false;
+            });
+        }
+
+        function openViewEditModal(orderId) {
+            let ord = appData.orders.find(o => o.id === orderId);
+            if(!ord) return;
+
+            document.getElementById('ve-order-id').value = ord.id;
+            document.getElementById('ve-display-id').value = ord.id;
+            document.getElementById('ve-display-party').value = ord.partyName;
+            document.getElementById('ve-date').value = ord.receiveOn || ord.date;
+
+            let tbody = document.getElementById('view-edit-tbody');
+            tbody.innerHTML = (ord.items || []).map((item, idx) => `
+                <tr class="hover:bg-slate-50 transition border-b border-gray-100 ve-row" data-name="${item.name}" data-cls="${item.cls}" data-ordered="${item.qty}">
+                    <td class="p-2.5 text-center font-bold text-gray-500">${idx + 1}</td>
+                    <td class="p-2.5 font-semibold text-slate-800">${item.name}</td>
+                    <td class="p-2.5 text-slate-600">${item.cls}</td>
+                    <td class="p-2.5 text-center font-bold text-indigo-600 ve-ordered">${item.qty}</td>
+                    <td class="p-2.5 text-center bg-emerald-50/50"><input type="number" class="ve-rec w-20 border rounded-lg p-1.5 text-xs text-center bg-white font-bold" value="${item.recievedQty !== undefined && item.recievedQty !== '' ? item.recievedQty : item.qty}" oninput="calculateVE(this)"></td>
+                    <td class="p-2.5 text-center font-bold text-amber-600 ve-balance">${item.balance || 0}</td>
+                    <td class="p-2.5 text-center font-bold text-purple-600 ve-extra">${item.extra || 0}</td>
+                    <td class="p-2.5 text-center"><input type="number" class="ve-price w-20 border rounded-lg p-1.5 text-xs text-center bg-white" placeholder="0.00" value="${item.price || ''}"></td>
+                    <td class="p-2.5 text-center"><input type="number" class="ve-disc w-16 border rounded-lg p-1.5 text-xs text-center bg-white" placeholder="0" value="${item.disc || ''}"></td>
+                </tr>
+            `).join('');
+
+            document.querySelectorAll('.ve-rec').forEach(input => calculateVE(input));
+            document.getElementById('view-edit-modal').classList.remove('hidden');
+        }
+
+        function closeViewEditModal() {
+            document.getElementById('view-edit-modal').classList.add('hidden');
+        }
+
+        function calculateVE(elem) {
+            let tr = elem.closest('tr');
+            let ordered = Number(tr.querySelector('.ve-ordered').innerText) || 0;
+            let received = Number(tr.querySelector('.ve-rec').value) || 0;
+
+            let balance = received < ordered ? ordered - received : 0;
+            let extra = received > ordered ? received - ordered : 0;
+
+            tr.querySelector('.ve-balance').innerText = balance;
+            tr.querySelector('.ve-extra').innerText = extra;
+        }
+
+        function updateViewEditData() {
+            let orderId = document.getElementById('ve-order-id').value;
+            let receiveOn = document.getElementById('ve-date').value;
+            let ord = appData.orders.find(o => o.id === orderId);
+            if(!ord) return;
+
+            let rows = document.querySelectorAll('.ve-row');
+            let updatedItems = [];
+
+            rows.forEach(tr => {
+                let name = tr.getAttribute('data-name');
+                let cls = tr.getAttribute('data-cls');
+                let qty = Number(tr.getAttribute('data-ordered')) || 0;
+                let recievedQty = Number(tr.querySelector('.ve-rec').value) || 0;
+                let balance = Number(tr.querySelector('.ve-balance').innerText) || 0;
+                let extra = Number(tr.querySelector('.ve-extra').innerText) || 0;
+                let price = Number(tr.querySelector('.ve-price').value) || 0;
+                let disc = Number(tr.querySelector('.ve-disc').value) || 0;
+
+                updatedItems.push({ name, cls, qty, recievedQty, balance, extra, price, disc });
+            });
+
+            let btn = document.getElementById('save-ve-btn');
+            btn.innerText = "Updating...";
+            btn.disabled = true;
+
+            let payload = {
+                type: 'order',
+                action: 'receive',
+                id: ord.id,
+                date: ord.date,
+                receiveOn: receiveOn,
+                partyName: ord.partyName,
+                remark1: ord.remark1 || '',
+                remark2: ord.remark2 || '',
+                status: 'Completed',
+                items: updatedItems
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(res => {
+                alert("Order receiving updated successfully!");
+                closeViewEditModal();
+                fetchData();
+                btn.innerText = "Update & Save Changes";
+                btn.disabled = false;
+            })
+            .catch(err => {
+                console.error("Update error:", err);
+                alert("Failed to update receiving data!");
+                btn.innerText = "Update & Save Changes";
+                btn.disabled = false;
+            });
+        }
+
+        function openPdfModal(orderId) {
+            document.getElementById('pdf-order-id').value = orderId;
+            document.getElementById('pdf-custom-msg').value = '';
+            document.getElementById('pdf-modal').classList.remove('hidden');
+        }
+
+        function closePdfModal() {
+            document.getElementById('pdf-modal').classList.add('hidden');
+        }
+
+        function generateFinalPDF() {
+            let orderId = document.getElementById('pdf-order-id').value;
+            let customMsg = document.getElementById('pdf-custom-msg').value.trim();
+            closePdfModal();
+
+            let ord = appData.orders.find(o => o.id === orderId);
+            if(!ord) return;
+
+            let party = appData.parties.find(p => p.name === ord.partyName) || {};
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.setTextColor(79, 70, 229);
+            doc.text("ADHIKARI BOOK DEPOT", 105, 15, { align: "center" });
+
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            doc.text("DEAL IN : ICSE, CBSE & U.P. BOARD, ENGLISH MEDIUM SCHOOL BOOKS", 105, 21, { align: "center" });
+            doc.setFontSize(8);
+            doc.text("Araji No 90, Plot No 13, Radhapuram, Gooba Garden, Kalyanpur, Kanpur - 208017", 105, 26, { align: "center" });
+            doc.text("Phone: +91 9839704638 | Email: adhikaribookdepot@gmail.com | PAN: DSGPS8248B", 105, 31, { align: "center" });
+
+            doc.setLineWidth(0.5);
+            doc.setDrawColor(200, 200, 200);
+            doc.line(14, 35, 196, 35);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(30, 41, 59);
+            doc.text("To,", 14, 42);
+            doc.text(`M/s ${ord.partyName}`, 14, 47);
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(80, 80, 80);
+            doc.text(`Address: ${party.address || 'Kanpur, UP'}`, 14, 52);
+            doc.text(`Phone: ${party.phone || '-'}`, 14, 57);
+            doc.text(`Email: ${party.email || '-'}`, 14, 62);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(30, 41, 59);
+            doc.text(`Order ID: ${ord.id}`, 192, 42, { align: "right" });
+            doc.text(`Order Date: ${ord.date}`, 192, 47, { align: "right" });
+            if(ord.status === 'Completed') {
+                doc.text(`Receiving Date: ${ord.receiveOn}`, 192, 52, { align: "right" });
+            }
+
+            let startYPos = 70;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(79, 70, 229);
+            let headingText = ord.status === 'Completed' ? "ORDER RECEIVING REPORT" : "ORDER";
+            doc.text(headingText, 105, startYPos, { align: "center" });
+            startYPos += 8;
+
+            if(customMsg) {
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(50, 50, 50);
+                doc.text(customMsg, 14, startYPos, { maxWidth: 180 });
+                startYPos += 12;
+            }
+
+            if(ord.remark1 || ord.remark2) {
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(8.5);
+                doc.setTextColor(70, 70, 70);
+                if(ord.remark1) { doc.text(`Remark 1: ${ord.remark1}`, 14, startYPos); startYPos += 5; }
+                if(ord.remark2) { doc.text(`Remark 2: ${ord.remark2}`, 14, startYPos); startYPos += 6; }
+            }
+
+            let tableHeaders, tableData;
+
+            if (ord.status === 'Completed') {
+                tableHeaders = [["Sr", "Book Name", "Class", "Ordered", "Received", "Balance", "Extra", "Price", "Disc", "Amount"]];
+                tableData = (ord.items || []).map((item, idx) => {
+                    let p = Number(item.price) || 0;
+                    let d = Number(item.disc) || 0;
+                    let recQ = Number(item.recievedQty) || 0;
+                    let netAmount = (p - (p * d / 100)) * recQ;
+                    return [
+                        idx + 1, item.name, item.cls, item.qty, recQ,
+                        item.balance || 0, item.extra || 0, p.toFixed(2), d + "%", netAmount.toFixed(2)
+                    ];
+                });
+            } else {
+                tableHeaders = [["Sr", "Book Name", "Part / Class", "Unit", "Quantity"]];
+                tableData = (ord.items || []).map((item, idx) => [
+                    idx + 1, item.name, item.cls, "PCS", item.qty
+                ]);
+            }
+
+            doc.autoTable({
+                startY: startYPos,
+                head: tableHeaders,
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+                bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 14, right: 14 }
+            });
+
+            let finalY = doc.lastAutoTable.finalY + 12;
+
+            if (ord.status === 'Completed') {
+                let grandTotal = (ord.items || []).reduce((sum, item) => {
+                    let p = Number(item.price) || 0;
+                    let d = Number(item.disc) || 0;
+                    let recQ = Number(item.recievedQty) || 0;
+                    return sum + ((p - (p * d / 100)) * recQ);
+                }, 0);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(10);
+                doc.setTextColor(30, 41, 59);
+                doc.text(`Grand Total Amount: ₹${grandTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 192, finalY, { align: "right" });
+                finalY += 12;
+            }
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(30, 41, 59);
+            doc.text("For Adhikari Book Depot", 192, finalY, { align: "right" });
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.text("Authorized Signatory", 192, finalY + 5, { align: "right" });
+
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            doc.text("This is System Generated File. No Signature Required.", 14, finalY + 15);
+
+            doc.save(`Party_Order_Report_${ord.id}.pdf`);
+        }
+
+        // Initial Data Fetch
+        fetchData();
+    </script>
+</body>
+</html>
